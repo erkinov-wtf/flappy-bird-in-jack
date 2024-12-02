@@ -1,0 +1,187 @@
+class FlappyBird {
+    field int birdX, birdY;        
+    field int velocity;            
+    field int score;               
+    field Array obstacles;         
+    field boolean isGameOver;      
+    field int gap;                 
+    
+    constructor FlappyBird new() {
+        let birdX = 100;          
+        let birdY = 128;           
+        let velocity = 0;
+        let score = 0;
+        let isGameOver = false;
+        let gap = 60;  
+        
+        let obstacles = Array.new(4);
+        // Start obstacles further to the right to give player time
+        let obstacles[0] = 300;    // x1
+        let obstacles[1] = 70;     // h1
+        let obstacles[2] = 450;    // x2
+        let obstacles[3] = 100;    // h2
+        
+        return this;
+    }
+
+    method int getRandomHeight() {
+        // Ensure height stays within safe bounds
+        return 50 + (score & 63);  // Height between 50-113
+    }
+
+    method void dispose() {
+        do obstacles.dispose();
+        do Memory.deAlloc(this);
+        return;
+    }
+
+    method void run() {
+        var char key;
+        
+        while (~isGameOver) {
+            let key = Keyboard.keyPressed();
+            
+            if (key = 32) { 
+                let velocity = -4;
+            }
+            
+            do updateGame();
+            do render();
+            do Sys.wait(20);
+        }
+        
+        while (isGameOver) {
+            let key = Keyboard.keyPressed();
+            do drawGameOver();
+            
+            if (key = 82) { 
+                do resetGame();
+            }
+            if (key = 81) { 
+                return;
+            }
+            do Sys.wait(20);
+        }
+        return;
+    }
+
+    method void updateGame() {
+        var int i;
+        let i = 0;
+
+        let velocity = velocity + 1;
+        if (velocity > 4) { let velocity = 4; }
+        let birdY = birdY + velocity;
+
+        // Ensure bird stays within screen bounds
+        if (birdY < 8) { let birdY = 8; }
+        if (birdY > 247) { let birdY = 247; }
+
+        while (i < 4) {
+            let obstacles[i] = obstacles[i] - 2;
+            
+            if (obstacles[i] < -20) {
+                let obstacles[i] = 500;
+                let obstacles[i + 1] = getRandomHeight();
+                let score = score + 1;
+            }
+            let i = i + 2;
+        }
+
+        if (checkCollision()) {
+            let isGameOver = true;
+        }
+        return;
+    }
+
+    method boolean checkCollision() {
+        var int i, obstacleX, obstacleHeight;
+        let i = 0;
+        
+        while (i < 4) {
+            let obstacleX = obstacles[i];
+            let obstacleHeight = obstacles[i + 1];
+            
+            // Only check when pipe is near bird
+            if ((obstacleX > 80) & (obstacleX < 120)) {
+                if ((birdY < obstacleHeight) | (birdY > (obstacleHeight + gap))) {
+                    return true;
+                }
+            }
+            let i = i + 2;
+        }
+        return false;
+    }
+
+    method void render() {
+        var int i, obstacleX, obstacleHeight;
+        let i = 0;
+
+        do Screen.clearScreen();
+        
+        // Draw bird
+        do Screen.drawCircle(birdX, birdY, 4);
+
+        // Draw obstacles with safe coordinates
+        while (i < 4) {
+            let obstacleX = obstacles[i];
+            let obstacleHeight = obstacles[i + 1];
+            
+            // Only draw if obstacle is on screen
+            if ((obstacleX > -16) & (obstacleX < 512)) {
+                do drawSafeObstacle(obstacleX, obstacleHeight);
+            }
+            let i = i + 2;
+        }
+
+        do Output.moveCursor(0, 0);
+        do Output.printString("Score: ");
+        do Output.printInt(score);
+        return;
+    }
+
+    // New method with safe coordinate handling
+    method void drawSafeObstacle(int x, int height) {
+        var int safeX, safeRightX;
+        
+        // Ensure x coordinates are within bounds
+        let safeX = Math.max(0, x);
+        let safeRightX = Math.min(511, x + 15);
+        
+        if (safeRightX > safeX) {  // Only draw if visible
+            // Draw top pipe (ensure height is within bounds)
+            do Screen.drawRectangle(safeX, 0, safeRightX, Math.min(height, 255));
+            
+            // Draw bottom pipe (ensure y coordinates are within bounds)
+            if ((height + gap) < 255) {
+                do Screen.drawRectangle(safeX, Math.min(255, height + gap), 
+                                     safeRightX, 255);
+            }
+        }
+        return;
+    }
+
+    method void drawGameOver() {
+        do Screen.clearScreen();
+        do Output.moveCursor(10, 27);
+        do Output.printString("Game Over!");
+        do Output.moveCursor(12, 27);
+        do Output.printString("Score: ");
+        do Output.printInt(score);
+        do Output.moveCursor(14, 20);
+        do Output.printString("R - Restart, Q - Quit");
+        return;
+    }
+
+    method void resetGame() {
+        let birdY = 128;
+        let velocity = 0;
+        let score = 0;
+        let isGameOver = false;
+        let obstacles[0] = 300;
+        let obstacles[1] = 70;
+        let obstacles[2] = 450;
+        let obstacles[3] = 100;
+        return;
+    }
+}
